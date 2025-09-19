@@ -1,0 +1,15 @@
+{
+  "osztaly":"KwClass",
+  "fuggveny":"KwFn",
+  "ha":"KwIf",
+  "kulonben":"KwElse",
+  "vissza":"KwReturn",
+  "legyen":"KwLet",
+  "valtozo":"KwVar",
+  "amig":"KwWhile",
+  "minden":"KwFor",
+  "ban":"KwIn",
+  "igaz":"KwTrue",
+  "hamis":"KwFalse",
+  "Semmi":"KwVoid"
+}

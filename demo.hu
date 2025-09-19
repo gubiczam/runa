@@ -1,0 +1,6 @@
+fuggveny fo() {
+  legyen a = [10, 20, 30];
+  kiir("a=", a);
+  kiir("a[1]=", a[1]);
+  vissza a[1] + 1;
+}

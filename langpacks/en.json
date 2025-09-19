@@ -1,0 +1,15 @@
+{
+  "class":"KwClass",
+  "fn":"KwFn",
+  "if":"KwIf",
+  "else":"KwElse",
+  "return":"KwReturn",
+  "let":"KwLet",
+  "var":"KwVar",
+  "while":"KwWhile",
+  "for":"KwFor",
+  "in":"KwIn",
+  "true":"KwTrue",
+  "false":"KwFalse",
+  "Void":"KwVoid"
+}
