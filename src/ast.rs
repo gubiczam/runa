@@ -1,6 +1,7 @@
 #[derive(Debug, Clone)]
 pub struct Program { pub items: Vec<Item> }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Item { Class(ClassDecl), Func(FuncDecl), Let(LetDecl) }
 

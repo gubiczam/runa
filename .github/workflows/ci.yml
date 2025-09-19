@@ -1,0 +1,2 @@
+- name: clippy
+- run: cargo clippy --all-targets   # töröld a `-- -D warnings` részt
