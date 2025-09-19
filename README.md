@@ -1,3 +1,7 @@
+![CI](https://img.shields.io/github/actions/workflow/status/gubiczam/runa/ci.yml?branch=master)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+
+
 # Runa — multilingual keyword programming language (MVP)
 
 Runa is a small programming language with **localized keywords** (Hungarian/English) and its own **compiler pipeline** (lexer → parser → bytecode IR) and **stack-based VM**.
