@@ -78,7 +78,7 @@ impl<'a> FnCG<'a> {
                 out.code[jf] = Op::JumpIfFalse(end);
                 let lp = self.loops.pop().unwrap();
                 for bpos in lp.breaks { out.code[bpos] = Op::Jump(end); }
-                for cpos in lp.continues { out.code[cpos] = Op::Jump(start); }
+for cpos in lp.continues { out.code[cpos] = Op::Jump(lp.start); }
             }
             Stmt::ForIn { var, iter, body } => {
                 self.expr(iter, out)?; let arr_local = self.alloc_local("__for_arr"); out.code.push(Op::StoreLocal(arr_local));
@@ -106,7 +106,7 @@ impl<'a> FnCG<'a> {
                 out.code[jf] = Op::JumpIfFalse(end);
                 let lp = self.loops.pop().unwrap();
                 for bpos in lp.breaks { out.code[bpos] = Op::Jump(end); }
-                for cpos in lp.continues { out.code[cpos] = Op::Jump(cont_jump_pos); }
+for cpos in lp.continues { out.code[cpos] = Op::Jump(lp.start); }
             }
             Stmt::Break => {
                 if let Some(lp) = self.loops.last_mut() { let pos = out.code.len(); out.code.push(Op::Jump(usize::MAX)); lp.breaks.push(pos); }
@@ -157,7 +157,7 @@ impl<'a> FnCG<'a> {
         Ok(())
     }
 }
-
+#[allow(dead_code)]
 impl Codegen {
     pub fn local_count(&self, fn_name: &str) -> usize {
         self.funcs.iter().find(|f| f.name == fn_name).map(|f| f.local_count).unwrap_or(0)
