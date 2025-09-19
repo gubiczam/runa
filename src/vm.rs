@@ -52,7 +52,6 @@ impl VM {
                     if stack.len() < *n { return Err(anyhow!("Stack underflow (MakeArray)")); }
                     let start = stack.len() - *n;
                     let mut v = stack.split_off(start);
-                    // elemek balról jobbra kerüljenek a tömbbe
                     let arr = Value::Array(v.drain(..).collect());
                     stack.push(arr);
                 }
@@ -75,23 +74,45 @@ impl VM {
                     stack.push(apply_binop(&a, &b, &f.chunk.code[ip])?);
                 }
                 Op::CallName(name, argc) => {
-                    if name == "kiir" || name == "print" {
-                        let mut args_buf = Vec::new();
-                        for _ in 0..*argc { args_buf.push(stack.pop().unwrap()); }
-                        args_buf.reverse();
-                        let line = args_buf.iter().map(val_to_string).collect::<Vec<_>>().join(" ");
-                        println!("{}", line);
-                        stack.push(Value::Void);
-                    } else if let Some(&callee_idx) = self.index.get(name) {
-                        let mut call_args = Vec::new();
-                        for _ in 0..*argc { call_args.push(stack.pop().unwrap()); }
-                        call_args.reverse();
-                        let ret = self.call(callee_idx, call_args)?;
-                        stack.push(ret);
-                    } else {
-                        return Err(anyhow!(format!("Ismeretlen függvény: {}", name)));
-                    }
-                }
+    if name == "kiir" || name == "print" {
+        let mut args_buf = Vec::new();
+        for _ in 0..*argc { args_buf.push(stack.pop().unwrap()); }
+        args_buf.reverse();
+        let line = args_buf.iter().map(val_to_string).collect::<Vec<_>>().join(" ");
+        println!("{}", line);
+        stack.push(Value::Void);
+
+    } else if name == "len" {
+        if *argc != 1 { return Err(anyhow!("len: 1 paraméter kell")); }
+        let v = stack.pop().unwrap();
+        let n = match v {
+            Value::Array(a) => a.len() as i64,
+            Value::Str(s) => s.chars().count() as i64,
+            _ => return Err(anyhow!("len: csak tömb vagy string")),
+        };
+        stack.push(Value::Int(n));
+
+    } else if name == "push" {
+        if *argc != 2 { return Err(anyhow!("push: 2 paraméter kell")); }
+        let v = stack.pop().unwrap();
+        let arr = stack.pop().unwrap();
+        match arr {
+            Value::Array(mut a) => { a.push(v); stack.push(Value::Array(a)); }
+            _ => return Err(anyhow!("push: első paraméter tömb legyen")),
+        }
+
+    } else if let Some(&callee_idx) = self.index.get(name) {
+        let mut call_args = Vec::new();
+        for _ in 0..*argc { call_args.push(stack.pop().unwrap()); }
+        call_args.reverse();
+        let ret = self.call(callee_idx, call_args)?;
+        stack.push(ret);
+
+    } else {
+        return Err(anyhow!(format!("Ismeretlen függvény: {}", name)));
+    }
+}
+
                 Op::Pop => { stack.pop(); }
                 Op::Jump(tgt) => { ip = *tgt; continue; }
                 Op::JumpIfFalse(tgt) => {
