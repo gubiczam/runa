@@ -1,0 +1,5 @@
+[alias]
+fmt = "fmt --all"
+lint = "clippy --all-targets -- -D warnings"
+run-hu = "run -- --locale=hu --file"
+run-en = "run -- --locale=en --file"
