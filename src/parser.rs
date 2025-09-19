@@ -4,22 +4,16 @@ use std::mem::discriminant;
 use crate::ast::*;
 use crate::token::TokenKind as T;
 
-pub struct Parser {
-    toks: Vec<T>,
-    i: usize,
-}
-
+pub struct Parser { toks: Vec<T>, i: usize }
 impl Parser {
     pub fn new(toks: Vec<T>) -> Self { Self { toks, i: 0 } }
 
     pub fn parse_program(&mut self) -> Result<Program> {
         let mut items = Vec::new();
         while !self.is(T::Eof) {
-            if self.is(T::KwClass) {
-                items.push(Item::Class(self.parse_class()?));
-            } else if self.is(T::KwFn) {
-                items.push(Item::Func(self.parse_func()?));
-            } else if self.is(T::KwLet) {
+            if self.is(T::KwClass) { items.push(Item::Class(self.parse_class()?)); }
+            else if self.is(T::KwFn) { items.push(Item::Func(self.parse_func()?)); }
+            else if self.is(T::KwLet) {
                 let decl = self.parse_let_decl()?;
                 self.expect(T::Semicolon)?;
                 items.push(Item::Let(decl));
@@ -39,29 +33,19 @@ impl Parser {
         let name = self.expect_ident()?;
         self.expect(T::LBrace)?;
         let mut methods = Vec::new();
-        while !self.is(T::RBrace) {
-            self.expect(T::KwFn)?;
-            methods.push(self.parse_func_after_kwfn()?);
-        }
+        while !self.is(T::RBrace) { self.expect(T::KwFn)?; methods.push(self.parse_func_after_kwfn()?); }
         self.expect(T::RBrace)?;
         Ok(ClassDecl { name, methods })
     }
 
-    fn parse_func(&mut self) -> Result<FuncDecl> {
-        self.expect(T::KwFn)?;
-        self.parse_func_after_kwfn()
-    }
+    fn parse_func(&mut self) -> Result<FuncDecl> { self.expect(T::KwFn)?; self.parse_func_after_kwfn() }
 
     fn parse_func_after_kwfn(&mut self) -> Result<FuncDecl> {
         let name = self.expect_ident()?;
         self.expect(T::LParen)?;
         let mut params = Vec::new();
         if !self.is(T::RParen) {
-            loop {
-                params.push(self.expect_ident()?);
-                if self.eat(T::Comma) { continue; }
-                break;
-            }
+            loop { params.push(self.expect_ident()?); if self.eat(T::Comma) { continue; } break; }
         }
         self.expect(T::RParen)?;
         let body = self.parse_block()?;
@@ -71,9 +55,7 @@ impl Parser {
     fn parse_block(&mut self) -> Result<Block> {
         self.expect(T::LBrace)?;
         let mut stmts = Vec::new();
-        while !self.is(T::RBrace) {
-            stmts.push(self.parse_stmt()?);
-        }
+        while !self.is(T::RBrace) { stmts.push(self.parse_stmt()?); }
         self.expect(T::RBrace)?;
         Ok(Block { stmts })
     }
@@ -108,6 +90,19 @@ impl Parser {
             let body = self.parse_block()?;
             return Ok(Stmt::While { cond, body });
         }
+        if self.is(T::KwFor) {
+            self.bump();
+            self.expect(T::LParen)?;
+            let var = self.expect_ident()?;
+            self.expect(T::KwIn)?;
+            let iter = self.parse_expr()?;
+            self.expect(T::RParen)?;
+            let body = self.parse_block()?;
+            return Ok(Stmt::ForIn { var, iter, body });
+        }
+        if self.is(T::KwBreak) { self.bump(); self.expect(T::Semicolon)?; return Ok(Stmt::Break); }
+        if self.is(T::KwContinue) { self.bump(); self.expect(T::Semicolon)?; return Ok(Stmt::Continue); }
+
         if matches!(self.peek(), T::Ident(_)) && self.kind_eq(self.peek_n(1), &T::Assign) {
             let name = if let T::Ident(s) = self.peek().clone() { s } else { unreachable!() };
             self.bump();
@@ -129,7 +124,6 @@ impl Parser {
         Ok(LetDecl { name, init })
     }
 
-    // ---- Expressions ----
     fn parse_expr(&mut self) -> Result<Expr> { self.parse_equality() }
 
     fn parse_equality(&mut self) -> Result<Expr> {
@@ -200,11 +194,7 @@ impl Parser {
             if self.eat(T::LParen) {
                 let mut args = Vec::new();
                 if !self.is(T::RParen) {
-                    loop {
-                        args.push(self.parse_expr()?);
-                        if self.eat(T::Comma) { continue; }
-                        break;
-                    }
+                    loop { args.push(self.parse_expr()?); if self.eat(T::Comma) { continue; } break; }
                 }
                 self.expect(T::RParen)?;
                 expr = Expr::Call { callee: Box::new(expr), args };
@@ -212,9 +202,7 @@ impl Parser {
                 let idx = self.parse_expr()?;
                 self.expect(T::RBracket)?;
                 expr = Expr::Index { target: Box::new(expr), index: Box::new(idx) };
-            } else {
-                break;
-            }
+            } else { break; }
         }
         Ok(expr)
     }
@@ -226,21 +214,12 @@ impl Parser {
             T::Str(s) => { self.bump(); Ok(Expr::Str(s)) }
             T::KwTrue => { self.bump(); Ok(Expr::Bool(true)) }
             T::KwFalse => { self.bump(); Ok(Expr::Bool(false)) }
-            T::LParen => {
-                self.bump();
-                let e = self.parse_expr()?;
-                self.expect(T::RParen)?;
-                Ok(Expr::Group(Box::new(e)))
-            }
+            T::LParen => { self.bump(); let e = self.parse_expr()?; self.expect(T::RParen)?; Ok(Expr::Group(Box::new(e))) }
             T::LBracket => {
                 self.bump();
                 let mut elems = Vec::new();
                 if !self.is(T::RBracket) {
-                    loop {
-                        elems.push(self.parse_expr()?);
-                        if self.eat(T::Comma) { continue; }
-                        break;
-                    }
+                    loop { elems.push(self.parse_expr()?); if self.eat(T::Comma) { continue; } break; }
                 }
                 self.expect(T::RBracket)?;
                 Ok(Expr::Array(elems))
@@ -249,25 +228,15 @@ impl Parser {
         }
     }
 
-    // ---- helpers ----
+    // helpers
     fn peek(&self) -> &T { self.toks.get(self.i).unwrap_or(&T::Eof) }
     fn peek_n(&self, n: usize) -> &T { self.toks.get(self.i + n).unwrap_or(&T::Eof) }
-
     fn is(&self, k: T) -> bool { discriminant(self.peek()) == discriminant(&k) }
     fn kind_eq(&self, a: &T, b: &T) -> bool { discriminant(a) == discriminant(b) }
-
     fn eat(&mut self, k: T) -> bool { if self.is(k) { self.i += 1; true } else { false } }
-
-    fn expect(&mut self, k: T) -> Result<()> {
-        if self.eat(k.clone()) { Ok(()) } else { Err(anyhow!(format!("Várt token: {:?}, kaptam: {:?}", k, self.peek()))) }
-    }
-
+    fn expect(&mut self, k: T) -> Result<()> { if self.eat(k.clone()) { Ok(()) } else { Err(anyhow!(format!("Várt token: {:?}, kaptam: {:?}", k, self.peek()))) } }
     fn bump(&mut self) { self.i += 1; }
-
     fn expect_ident(&mut self) -> Result<String> {
-        match self.peek().clone() {
-            T::Ident(s) => { self.bump(); Ok(s) }
-            other => Err(anyhow!(format!("Várt azonosító, kaptam: {:?}", other))),
-        }
+        match self.peek().clone() { T::Ident(s) => { self.bump(); Ok(s) }, other => Err(anyhow!(format!("Várt azonosító, kaptam: {:?}", other))) }
     }
 }

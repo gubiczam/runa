@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use anyhow::{anyhow, Result};
-
-use crate::ast::*;
-use crate::ir::*;
+use crate::ast::*; use crate::ir::*;
 
 pub struct Codegen { funcs: Vec<FunctionIR> }
 impl Codegen {
@@ -12,13 +10,7 @@ impl Codegen {
         for it in &p.items {
             match it {
                 Item::Func(f) => { self.gen_func(f)?; }
-                Item::Class(c) => {
-                    for m in &c.methods {
-                        let mut m2 = m.clone();
-                        m2.name = format!("{}.{}", c.name, m.name);
-                        self.gen_func(&m2)?;
-                    }
-                }
+                Item::Class(c) => { for m in &c.methods { let mut m2 = m.clone(); m2.name = format!("{}.{}", c.name, m.name); self.gen_func(&m2)?; } }
                 Item::Let(_) => {}
             }
         }
@@ -37,30 +29,25 @@ impl Codegen {
     }
 }
 
+struct LoopCtx { start: usize, breaks: Vec<usize>, continues: Vec<usize> }
+
 struct FnCG<'a> {
     locals: HashMap<String, usize>,
     next_local: usize,
     _params: &'a [String],
+    loops: Vec<LoopCtx>,
 }
 impl<'a> FnCG<'a> {
     fn new(params: &'a [String]) -> Self {
-        let mut cg = Self { locals: HashMap::new(), next_local: 0, _params: params };
-        for (i, name) in params.iter().enumerate() {
-            cg.locals.insert(name.clone(), i);
-            cg.next_local = cg.next_local.max(i + 1);
-        }
+        let mut cg = Self { locals: HashMap::new(), next_local: 0, _params: params, loops: Vec::new() };
+        for (i, name) in params.iter().enumerate() { cg.locals.insert(name.clone(), i); cg.next_local = cg.next_local.max(i + 1); }
         cg
     }
     fn local_count(&self) -> usize { self.next_local }
     fn get_local(&self, name: &str) -> Option<usize> { self.locals.get(name).copied() }
-    fn alloc_local(&mut self, name: &str) -> usize {
-        if let Some(&i) = self.locals.get(name) { return i; }
-        let i = self.next_local; self.locals.insert(name.to_string(), i); self.next_local += 1; i
-    }
+    fn alloc_local(&mut self, name: &str) -> usize { if let Some(&i) = self.locals.get(name) { i } else { let i = self.next_local; self.locals.insert(name.to_string(), i); self.next_local += 1; i } }
 
-    fn block(&mut self, b: &Block, out: &mut Chunk) -> Result<()> {
-        for s in &b.stmts { self.stmt(s, out)?; } Ok(())
-    }
+    fn block(&mut self, b: &Block, out: &mut Chunk) -> Result<()> { for s in &b.stmts { self.stmt(s, out)?; } Ok(()) }
 
     fn stmt(&mut self, s: &Stmt, out: &mut Chunk) -> Result<()> {
         match s {
@@ -82,10 +69,52 @@ impl<'a> FnCG<'a> {
                 } else { out.code[jf] = Op::JumpIfFalse(out.code.len()); }
             }
             Stmt::While { cond, body } => {
-                let loop_start = out.code.len();
+                let start = out.code.len();
                 self.expr(cond, out)?; let jf = out.code.len(); out.code.push(Op::JumpIfFalse(usize::MAX));
-                self.block(body, out)?; out.code.push(Op::Jump(loop_start));
-                out.code[jf] = Op::JumpIfFalse(out.code.len());
+                self.loops.push(LoopCtx { start, breaks: Vec::new(), continues: Vec::new() });
+                self.block(body, out)?;
+                out.code.push(Op::Jump(start));
+                let end = out.code.len();
+                out.code[jf] = Op::JumpIfFalse(end);
+                let lp = self.loops.pop().unwrap();
+                for bpos in lp.breaks { out.code[bpos] = Op::Jump(end); }
+                for cpos in lp.continues { out.code[cpos] = Op::Jump(start); }
+            }
+            Stmt::ForIn { var, iter, body } => {
+                self.expr(iter, out)?; let arr_local = self.alloc_local("__for_arr"); out.code.push(Op::StoreLocal(arr_local));
+                let idx_local = self.alloc_local("__for_i"); out.code.push(Op::PushInt(0)); out.code.push(Op::StoreLocal(idx_local));
+                let start = out.code.len();
+                out.code.push(Op::LoadLocal(idx_local));
+                out.code.push(Op::LoadLocal(arr_local));
+                out.code.push(Op::CallName("len".to_string(), 1));
+                out.code.push(Op::Lt);
+                let jf = out.code.len(); out.code.push(Op::JumpIfFalse(usize::MAX));
+                self.loops.push(LoopCtx { start, breaks: Vec::new(), continues: Vec::new() });
+                let v_local = self.alloc_local(var);
+                out.code.push(Op::LoadLocal(arr_local));
+                out.code.push(Op::LoadLocal(idx_local));
+                out.code.push(Op::IndexGet);
+                out.code.push(Op::StoreLocal(v_local));
+                self.block(body, out)?;
+                let cont_jump_pos = out.code.len();
+                out.code.push(Op::LoadLocal(idx_local));
+                out.code.push(Op::PushInt(1));
+                out.code.push(Op::Add);
+                out.code.push(Op::StoreLocal(idx_local));
+                out.code.push(Op::Jump(start));
+                let end = out.code.len();
+                out.code[jf] = Op::JumpIfFalse(end);
+                let lp = self.loops.pop().unwrap();
+                for bpos in lp.breaks { out.code[bpos] = Op::Jump(end); }
+                for cpos in lp.continues { out.code[cpos] = Op::Jump(cont_jump_pos); }
+            }
+            Stmt::Break => {
+                if let Some(lp) = self.loops.last_mut() { let pos = out.code.len(); out.code.push(Op::Jump(usize::MAX)); lp.breaks.push(pos); }
+                else { return Err(anyhow!("break: nincs ciklusban")); }
+            }
+            Stmt::Continue => {
+                if let Some(lp) = self.loops.last_mut() { let pos = out.code.len(); out.code.push(Op::Jump(usize::MAX)); lp.continues.push(pos); }
+                else { return Err(anyhow!("continue: nincs ciklusban")); }
             }
             Stmt::Expr(e) => { self.expr(e, out)?; out.code.push(Op::Pop); }
         }
@@ -101,13 +130,8 @@ impl<'a> FnCG<'a> {
             Expr::Int(n) => out.code.push(Op::PushInt(*n)),
             Expr::Str(s) => out.code.push(Op::PushStr(s.clone())),
             Expr::Bool(b) => out.code.push(Op::PushBool(*b)),
-            Expr::Array(elems) => {
-                for el in elems { self.expr(el, out)?; }
-                out.code.push(Op::MakeArray(elems.len()));
-            }
-            Expr::Index { target, index } => {
-                self.expr(target, out)?; self.expr(index, out)?; out.code.push(Op::IndexGet);
-            }
+            Expr::Array(elems) => { for el in elems { self.expr(el, out)?; } out.code.push(Op::MakeArray(elems.len())); }
+            Expr::Index { target, index } => { self.expr(target, out)?; self.expr(index, out)?; out.code.push(Op::IndexGet); }
             Expr::Group(inner) => self.expr(inner, out)?,
             Expr::Binary { op, left, right } => {
                 self.expr(left, out)?; self.expr(right, out)?;
@@ -125,7 +149,7 @@ impl<'a> FnCG<'a> {
                 }
             }
             Expr::Call { callee, args } => {
-                let name = match &**callee { Expr::Ident(n) => n.clone(), _ => return Err(anyhow!("Csak név alapú hívás támogatott MVP-ben")) };
+                let name = match &**callee { Expr::Ident(n) => n.clone(), _ => return Err(anyhow!("Csak név alapú hívás")) };
                 for a in args { self.expr(a, out)?; }
                 out.code.push(Op::CallName(name, args.len()));
             }

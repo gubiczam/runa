@@ -1,0 +1,54 @@
+fuggveny osszead(a, b) { vissza a + b; }
+
+fuggveny osszeg_nig(n) {
+  legyen i = 0;
+  legyen s = 0;
+  amig (i < n) {
+    s = s + i;
+    i = i + 1;
+  }
+  vissza s;
+}
+
+fuggveny tomb_demo() {
+  legyen a = [10, 20];
+  kiir("a=", a, "hossz=", len(a));
+  a = push(a, 99);
+  kiir("utana:", a, "utolso=", a[2]);
+  vissza a[2];
+}
+
+fuggveny for_demo() {
+  legyen tomb = [1, 2, 3, 4, 5];
+  legyen s = 0;
+  minden (x ban tomb) {
+    ha (x == 4) { folytat; }
+    ha (x == 5) { kilep; }
+    s = s + x;
+  }
+  kiir("s=", s);
+  vissza s;
+}
+
+osztaly Allat {
+  fuggveny kialt() { kiir("rawr"); }
+}
+
+fuggveny fo() {
+  legyen x = osszead(2, 3) * 4;
+  kiir("x=", x);
+
+  legyen y = osszeg_nig(5);
+  kiir("osszeg_nig(5)=", y);
+
+  legyen z = tomb_demo();
+  legyen f = for_demo();
+
+  ha (z == 99) {
+    ha (f == 6) { kiir("ok"); } kulonben { kiir("f rossz"); }
+  } kulonben {
+    kiir("z rossz");
+  }
+
+  vissza x + y + z + f;
+}

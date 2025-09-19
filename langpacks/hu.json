@@ -9,6 +9,8 @@
   "amig":"KwWhile",
   "minden":"KwFor",
   "ban":"KwIn",
+  "kilep":"KwBreak",
+  "folytat":"KwContinue",
   "igaz":"KwTrue",
   "hamis":"KwFalse",
   "Semmi":"KwVoid"

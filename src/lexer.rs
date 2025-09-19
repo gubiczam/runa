@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use logos::Logos;                 // kell a derive-hoz
+use logos::Logos;
 use std::collections::HashMap;
 use crate::token::TokenKind;
 
@@ -32,9 +32,7 @@ enum RawTok {
     #[token("&&")] AndAnd,  #[token("||")] OrOr, #[token("!")] Not,
 }
 
-pub struct Lexer {
-    locale: HashMap<String, TokenKind>,
-}
+pub struct Lexer { locale: HashMap<String, TokenKind> }
 
 impl Lexer {
     pub fn from_locale_json(json: &str) -> Result<Self> {
@@ -52,6 +50,8 @@ impl Lexer {
                 "KwWhile" => TokenKind::KwWhile,
                 "KwFor" => TokenKind::KwFor,
                 "KwIn" => TokenKind::KwIn,
+                "KwBreak" => TokenKind::KwBreak,
+                "KwContinue" => TokenKind::KwContinue,
                 "KwTrue" => TokenKind::KwTrue,
                 "KwFalse" => TokenKind::KwFalse,
                 "KwVoid" => TokenKind::KwVoid,
@@ -81,11 +81,8 @@ impl Lexer {
                     }
                     RawTok::Word => {
                         let w = lexer.slice().to_string();
-                        if let Some(kw) = self.locale.get(&w) {
-                            out.push(kw.clone());
-                        } else {
-                            out.push(TokenKind::Ident(w));
-                        }
+                        if let Some(kw) = self.locale.get(&w) { out.push(kw.clone()); }
+                        else { out.push(TokenKind::Ident(w)); }
                     }
                     RawTok::LParen => out.push(TokenKind::LParen),
                     RawTok::RParen => out.push(TokenKind::RParen),
@@ -114,9 +111,7 @@ impl Lexer {
                     RawTok::OrOr => out.push(TokenKind::OrOr),
                     RawTok::Not => out.push(TokenKind::Not),
                 },
-                Err(()) => {
-                    return Err(anyhow!(format!("lexikai hiba: poz {}", lexer.span().start)));
-                }
+                Err(()) => { return Err(anyhow!(format!("lexikai hiba: poz {}", lexer.span().start))); }
             }
         }
 
@@ -142,12 +137,8 @@ fn unquote(s: &str) -> Result<String> {
                     '"' => out.push('"'),
                     other => return Err(anyhow!(format!("ismeretlen escape: \\{}", other))),
                 }
-            } else {
-                return Err(anyhow!("befejezetlen escape"));
-            }
-        } else {
-            out.push(c);
-        }
+            } else { return Err(anyhow!("befejezetlen escape")); }
+        } else { out.push(c); }
     }
     Ok(out)
 }

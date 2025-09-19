@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "Runa: Run HU", "type": "shell",
+      "command": "cargo", "args": ["run","--","--locale=hu","--file","${file}"],
+      "group": "build", "problemMatcher": ["$rustc"] },
+    { "label": "Runa: Run EN", "type": "shell",
+      "command": "cargo", "args": ["run","--","--locale=en","--file","${file}"],
+      "group": "build", "problemMatcher": ["$rustc"] }
+  ]
+}

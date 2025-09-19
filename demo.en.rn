@@ -1,0 +1,54 @@
+fn add(a, b) { return a + b; }
+
+fn sum_to(n) {
+  let i = 0;
+  let s = 0;
+  while (i < n) {
+    s = s + i;
+    i = i + 1;
+  }
+  return s;
+}
+
+fn array_demo() {
+  let a = [10, 20];
+  print("a =", a, "len =", len(a));
+  a = push(a, 99);
+  print("after:", a, "last =", a[2]);
+  return a[2];
+}
+
+fn for_demo() {
+  let arr = [1, 2, 3, 4, 5];
+  let s = 0;
+  for (x in arr) {
+    if (x == 4) { continue; }
+    if (x == 5) { break; }
+    s = s + x;
+  }
+  print("s =", s);
+  return s;
+}
+
+class Animal {
+  fn shout() { print("rawr"); }
+}
+
+fn main() {
+  let x = add(2, 3) * 4;
+  print("x =", x);
+
+  let y = sum_to(5);
+  print("sum_to(5) =", y);
+
+  let z = array_demo();
+  let f = for_demo();
+
+  if (z == 99) {
+    if (f == 6) { print("ok"); } else { print("fail"); }
+  } else {
+    print("z bad");
+  }
+
+  return x + y + z + f;
+}
