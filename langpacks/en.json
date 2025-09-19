@@ -9,6 +9,8 @@
   "while":"KwWhile",
   "for":"KwFor",
   "in":"KwIn",
+  "break":"KwBreak",
+  "continue":"KwContinue",
   "true":"KwTrue",
   "false":"KwFalse",
   "Void":"KwVoid"

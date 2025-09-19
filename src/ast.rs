@@ -1,38 +1,20 @@
 #[derive(Debug, Clone)]
-pub struct Program {
-    pub items: Vec<Item>,
-}
+pub struct Program { pub items: Vec<Item> }
 
 #[derive(Debug, Clone)]
-pub enum Item {
-    Class(ClassDecl),
-    Func(FuncDecl),
-    Let(LetDecl),
-}
+pub enum Item { Class(ClassDecl), Func(FuncDecl), Let(LetDecl) }
 
 #[derive(Debug, Clone)]
-pub struct ClassDecl {
-    pub name: String,
-    pub methods: Vec<FuncDecl>,
-}
+pub struct ClassDecl { pub name: String, pub methods: Vec<FuncDecl> }
 
 #[derive(Debug, Clone)]
-pub struct FuncDecl {
-    pub name: String,
-    pub params: Vec<String>,
-    pub body: Block,
-}
+pub struct FuncDecl { pub name: String, pub params: Vec<String>, pub body: Block }
 
 #[derive(Debug, Clone)]
-pub struct LetDecl {
-    pub name: String,
-    pub init: Expr,
-}
+pub struct LetDecl { pub name: String, pub init: Expr }
 
 #[derive(Debug, Clone)]
-pub struct Block {
-    pub stmts: Vec<Stmt>,
-}
+pub struct Block { pub stmts: Vec<Stmt> }
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
@@ -41,6 +23,9 @@ pub enum Stmt {
     Return(Option<Expr>),
     If { cond: Expr, then_block: Block, else_block: Option<Block> },
     While { cond: Expr, body: Block },
+    ForIn { var: String, iter: Expr, body: Block },
+    Break,
+    Continue,
     Expr(Expr),
 }
 
