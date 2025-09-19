@@ -1,57 +1,79 @@
-mod token;
-mod lexer;
-mod ast;
-mod parser;
-mod ir;
-mod codegen;
-mod vm;
+use anyhow::{anyhow, Result};
+use std::{env, fs};
 
-use std::fs;
-use anyhow::Result;
+mod token; mod lexer; mod ast; mod parser; mod ir; mod codegen; mod vm;
+
 use lexer::Lexer;
 use parser::Parser;
 use codegen::Codegen;
 use vm::VM;
 
 fn main() -> Result<()> {
-    // --locale=hu|en, --file=path
-    let mut locale = "hu".to_string();
-    let mut file = None::<String>;
-    for arg in std::env::args().skip(1) {
-        if let Some(v) = arg.strip_prefix("--locale=") { locale = v.to_string(); continue; }
-        if let Some(v) = arg.strip_prefix("--file=") { file = Some(v.to_string()); continue; }
+    // ---- args: --locale=<hu|en> --file=<path> ----
+    let mut locale = String::from("en");
+    let mut file: Option<String> = None;
+    let args: Vec<String> = env::args().skip(1).collect();
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--locale" => { i += 1; locale = args.get(i).cloned().ok_or_else(|| anyhow!("--locale needs value"))?; }
+            "--file"   => { i += 1; file = Some(args.get(i).cloned().ok_or_else(|| anyhow!("--file needs value"))?); }
+            x if x.starts_with("--locale=") => { locale = x["--locale=".len()..].to_string(); }
+            x if x.starts_with("--file=")   => { file = Some(x["--file=".len()..].to_string()); }
+            other => return Err(anyhow!(format!("Unknown arg: {}", other))),
+        }
+        i += 1;
     }
-    let json = match locale.as_str() {
-        "hu" => include_str!("../langpacks/hu.json"),
-        "en" => include_str!("../langpacks/en.json"),
-        other => panic!("ismeretlen locale: {}", other),
-    };
 
-    let lx = Lexer::from_locale_json(json)?;
+    // ---- langpack betöltés ----
+    let lp_path = format!("langpacks/{}.json", locale);
+    let lp_json = fs::read_to_string(&lp_path)
+        .map_err(|e| anyhow!("Cannot read {}: {}", lp_path, e))?;
+    let lexer = Lexer::from_locale_json(&lp_json)?;
+
+    // ---- forrás beolvasása vagy demó ----
     let src = if let Some(p) = file {
-        fs::read_to_string(p)?
+        fs::read_to_string(&p).map_err(|e| anyhow!("Cannot read source file: {}", e))?
     } else {
-        String::from(r#"
-            osztaly Kutya {
-                fuggveny ugat() { ha (igaz) { kiir("Vau"); } }
-            }
-            fuggveny fo() {
-                legyen x = 1 + 2 * 3;
-                kiir("osszeg:", x);
-                vissza x;
-            }
-        "#)
+        default_demo(&locale).to_string()
     };
 
-    let tokens = lx.lex(&src)?;
-    let mut p = Parser::new(tokens);
-    let program = p.parse_program()?;
+    // ---- fordítási lánc ----
+    let toks = lexer.lex(&src)?;
+    let mut parser = Parser::new(toks);
+    let program = parser.parse_program()?;
 
-    let cg = Codegen::new();
-    let ir = cg.build(&program)?;
-
+    let ir = Codegen::new().build(&program)?;
     let vm = VM::new(ir);
-    let ret = vm.run("fo")?;
-    println!("fo() -> {:?}", ret);
-    Ok(())
+
+    // ---- belépési pont ----
+    let entries = if locale == "hu" { vec!["fo", "main"] } else { vec!["main", "fo"] };
+    for e in entries {
+        if let Ok(val) = vm.run(e) {
+            println!("{}() -> {:?}", e, val);
+            return Ok(());
+        }
+    }
+    Err(anyhow!("No entry function found (expected: main/fo)"))
+}
+
+// Kis beágyazott demó csak fallbacknek, lokálé szerint
+fn default_demo(locale: &str) -> &'static str {
+    if locale == "hu" {
+        r#"
+fuggveny fo() {
+  legyen a = [1,2,3];
+  kiir("len(a)=", len(a));
+  vissza a[0] + a[1] + a[2];
+}
+"#
+    } else {
+        r#"
+fn main() {
+  let a = [1,2,3];
+  print("len(a) =", len(a));
+  return a[0] + a[1] + a[2];
+}
+"#
+    }
 }
